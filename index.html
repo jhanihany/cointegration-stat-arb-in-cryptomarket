@@ -1,0 +1,2281 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e1726">
+  <meta name="description" content="2025년 KRW 암호자산 공적분 스크리닝과 Rolling Johansen OOS 백테스트 프로젝트">
+  <title>Cointegration Statistical Arbitrage</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="progress"><span id="progressFill"></span></div>
+
+  <header class="site-header">
+    <a href="#top" class="brand"><span class="brand-mark">Σ</span><span>COINTEGRATION LAB</span></a>
+    <nav>
+      <a href="#screening">Screening</a>
+      <a href="#backtest1m">1m OOS</a>
+      <a href="#backtest15m">15m OOS</a>
+      <a href="#interpretation">Interpretation</a>
+      <a href="#code">Code</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">STATISTICAL ARBITRAGE · 2025 KRW CRYPTO</p>
+        <h1>Cointegration<br>Statistical Arbitrage</h1>
+        <p class="hero-sub">Johansen 공적분 검정으로 평균회귀 바스켓을 선별하고, 1분봉·15분봉에서 rolling out-of-sample 안정성과 수익성을 검증한 프로젝트</p>
+        <div class="hero-metrics">
+          <div><strong>10</strong><span>KRW assets</span></div>
+          <div><strong>90D</strong><span>train window</span></div>
+          <div><strong>7D</strong><span>OOS test</span></div>
+          <div><strong>39</strong><span>OOS windows</span></div>
+        </div>
+        <a class="scroll-cta" href="#overview">분석 보기 ↓</a>
+      </div>
+      <div class="hero-panel reveal delay-1">
+        <div class="terminal-top"><span></span><span></span><span></span><em>research_pipeline.py</em></div>
+        <pre><code>ADF → VAR lag → Johansen rank
+    → cointegrating vector
+    → spread ADF
+    → AR(1) / OU half-life
+    → Rolling OOS backtest
+
+ENTRY  : |z| ≥ 2.0
+EXIT   : |z| → 0.5
+COST   : 5bps + slippage
+WEIGHT : gross exposure = 1</code></pre>
+      </div>
+    </section>
+
+    <section id="overview" class="section-shell">
+      <div class="section-head reveal">
+        <span>00</span>
+        <div><p>Overview</p><h2>공적분이 존재한다는 것과<br>실제로 수익이 난다는 것은 다릅니다.</h2></div>
+        <p>전체 표본에서 구조를 찾고, 이후 rolling OOS에서 그 관계가 지속되는지와 거래비용 이후 수익성을 별도로 검증했습니다.</p>
+      </div>
+
+      <div class="pipeline reveal">
+        <div><b>01</b><strong>I(1) 확인</strong><span>레벨/1차 차분 ADF</span></div>
+        <i>→</i>
+        <div><b>02</b><strong>Johansen</strong><span>rank ≥ 1</span></div>
+        <i>→</i>
+        <div><b>03</b><strong>Spread</strong><span>ADF p &lt; .05</span></div>
+        <i>→</i>
+        <div><b>04</b><strong>Mean Reversion</strong><span>b &lt; 0 · Half-life</span></div>
+        <i>→</i>
+        <div><b>05</b><strong>OOS</strong><span>90D → 7D rolling</span></div>
+      </div>
+
+      <aside class="caveat reveal">
+        <strong>검증 범위 주의</strong>
+        <p>rolling OOS에서 Johansen weight는 각 Train 구간에서만 다시 추정되지만, <b>후보 바스켓 자체는 2025년 전체 데이터를 이용해 먼저 선별</b>되었습니다. 따라서 이는 고정 후보의 OOS 안정성·수익성 검증이며, 후보 탐색까지 완전히 nested OOS로 만든 실험은 아닙니다.</p>
+      </aside>
+    </section>
+
+    <section id="screening" class="section-shell alt-bg">
+      <div class="section-head reveal">
+        <span>01</span>
+        <div><p>Screening</p><h2>평균회귀 후보를<br>통계적으로 선별하기</h2></div>
+        <p>BTC를 포함하는 3·4자산 바스켓을 만들고 VAR 시차, Johansen rank, 스프레드 정상성, AR(1), OU 반감기를 순서대로 확인했습니다.</p>
+      </div>
+
+      <div class="stats-grid reveal">
+        <article><span>1m evaluated</span><strong>84</strong><em>baskets</em></article>
+        <article><span>1m final</span><strong>6</strong><em>OOS candidates</em></article>
+        <article><span>15m evaluated</span><strong>120</strong><em>baskets</em></article>
+        <article><span>15m final</span><strong>2</strong><em>OOS candidates</em></article>
+      </div>
+
+      <div class="two-col">
+        <div class="panel reveal">
+          <h3>1분봉 최종 후보</h3>
+          <p class="panel-lead">ADF &lt; 0.05, AR(1) b &lt; 0, Half-life 6시간~5일 조건을 통과한 6개 바스켓</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Basket</th><th>ADF p</th><th>AR b</th><th>Half-life</th></tr></thead>
+              <tbody>
+      <tr>
+        <td>BTC|DOGE|DOT|ETH</td>
+        <td>7.84e-08</td>
+        <td>-0.000417</td>
+        <td>27.7h</td>
+      </tr>
+      <tr>
+        <td>BTC|AVAX|DOGE|XRP</td>
+        <td>1.85e-07</td>
+        <td>-0.000339</td>
+        <td>34.1h</td>
+      </tr>
+      <tr>
+        <td>BTC|LINK|SOL|XRP</td>
+        <td>1.95e-06</td>
+        <td>-0.000202</td>
+        <td>57.2h</td>
+      </tr>
+      <tr>
+        <td>BTC|ETH|LINK|SOL</td>
+        <td>2.65e-05</td>
+        <td>-0.000159</td>
+        <td>72.5h</td>
+      </tr>
+      <tr>
+        <td>BTC|AVAX|DOGE|ETH</td>
+        <td>3.81e-05</td>
+        <td>-0.000208</td>
+        <td>55.4h</td>
+      </tr>
+      <tr>
+        <td>BTC|LINK|SOL</td>
+        <td>5.40e-05</td>
+        <td>-0.000153</td>
+        <td>75.7h</td>
+      </tr></tbody>
+            </table>
+          </div>
+        </div>
+        <figure class="chart-card reveal">
+          <img src="assets/charts/1m_halflife.png" alt="1분봉 후보 바스켓 반감기">
+          <figcaption>평균으로 복귀하는 속도는 후보마다 약 27.7~75.7시간 수준으로 추정됨</figcaption>
+        </figure>
+      </div>
+
+      <div class="result-callout reveal">
+        <span>15m screening</span>
+        <h3>2개 후보만 최종 필터를 통과</h3>
+        <p><b>BTC-ADA-DOT-TRX</b> · half-life 74.0h, ADF p=1.73e-07<br><b>BTC-LINK-SOL-TRX</b> · half-life 107.4h, ADF p=1.08e-04</p>
+      </div>
+    </section>
+
+    <section id="backtest1m" class="section-shell">
+      <div class="section-head reveal">
+        <span>02</span>
+        <div><p>1m Rolling OOS</p><h2>1분봉에서는 한 바스켓만<br>거래비용 이후에도 플러스</h2></div>
+        <p>90일 Train → 7일 Test를 7일씩 이동했습니다. 각 Train 구간에서 Johansen vector를 다시 추정하고, Test 구간 rank가 0이면 거래하지 않았습니다.</p>
+      </div>
+
+      <div class="key-result reveal">
+        <div>
+          <span>BEST 1m BASKET</span>
+          <h3>BTC · DOGE · DOT · ETH</h3>
+          <p>0bps 추가 슬리피지 기준. 기본 거래비용 5bps는 코드에 별도로 반영되어 있습니다.</p>
+        </div>
+        <div class="key-metrics">
+          <div><small>Cumulative return</small><strong>8.13%</strong></div>
+          <div><small>Sharpe</small><strong>1.47</strong></div>
+          <div><small>MDD</small><strong>-12.55%</strong></div>
+          <div><small>Win rate</small><strong>71.43%</strong></div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <figure class="chart-card reveal"><img src="assets/charts/1m_returns_0bps.png" alt="1분봉 OOS 누적수익률 비교"><figcaption>6개 후보 중 BTC-DOGE-DOT-ETH만 0bps 추가 슬리피지에서 양(+)의 누적수익률</figcaption></figure>
+        <figure class="chart-card reveal"><img src="assets/charts/best_slippage.png" alt="최고 1분봉 바스켓 슬리피지 민감도"><figcaption>추가 슬리피지 10bps에서도 누적수익률 3.68%로 플러스 유지</figcaption></figure>
+      </div>
+
+      <div class="panel reveal">
+        <h3>1m OOS summary · 0bps additional slippage</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Basket</th><th>Return</th><th>Sharpe</th><th>MDD</th><th>Trades</th><th>Win rate</th><th>Coint. windows</th></tr></thead>
+            <tbody>
+      <tr class="best-row">
+        <td>BTC|DOGE|DOT|ETH</td>
+        <td>8.13%</td>
+        <td>1.47</td>
+        <td>-12.55%</td>
+        <td>21</td>
+        <td>71.43%</td>
+        <td>33.3%</td>
+      </tr>
+      <tr class="">
+        <td>BTC|AVAX|DOGE|ETH</td>
+        <td>-1.42%</td>
+        <td>-0.22</td>
+        <td>-9.30%</td>
+        <td>15</td>
+        <td>66.67%</td>
+        <td>25.6%</td>
+      </tr>
+      <tr class="">
+        <td>BTC|ETH|LINK|SOL</td>
+        <td>-3.06%</td>
+        <td>-0.38</td>
+        <td>-14.70%</td>
+        <td>33</td>
+        <td>66.67%</td>
+        <td>61.5%</td>
+      </tr>
+      <tr class="">
+        <td>BTC|LINK|SOL</td>
+        <td>-5.69%</td>
+        <td>-0.57</td>
+        <td>-22.49%</td>
+        <td>26</td>
+        <td>69.23%</td>
+        <td>51.3%</td>
+      </tr>
+      <tr class="">
+        <td>BTC|LINK|SOL|XRP</td>
+        <td>-14.94%</td>
+        <td>-1.60</td>
+        <td>-29.23%</td>
+        <td>28</td>
+        <td>71.43%</td>
+        <td>59.0%</td>
+      </tr>
+      <tr class="">
+        <td>BTC|AVAX|DOGE|XRP</td>
+        <td>-18.36%</td>
+        <td>-2.44</td>
+        <td>-31.39%</td>
+        <td>39</td>
+        <td>58.97%</td>
+        <td>53.8%</td>
+      </tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <details class="gallery-details reveal">
+        <summary>6개 바스켓 wealth curve 전체 보기 <span>+</span></summary>
+        <div class="curve-grid"><figure class="curve-card reveal"><img src="assets/results/wealth_1m_1.png" alt="1분봉 BTC-DOGE-DOT-ETH OOS wealth curve"><figcaption>BTC-DOGE-DOT-ETH</figcaption></figure>
+<figure class="curve-card reveal"><img src="assets/results/wealth_1m_2.png" alt="1분봉 BTC-AVAX-DOGE-XRP OOS wealth curve"><figcaption>BTC-AVAX-DOGE-XRP</figcaption></figure>
+<figure class="curve-card reveal"><img src="assets/results/wealth_1m_3.png" alt="1분봉 BTC-LINK-SOL-XRP OOS wealth curve"><figcaption>BTC-LINK-SOL-XRP</figcaption></figure>
+<figure class="curve-card reveal"><img src="assets/results/wealth_1m_4.png" alt="1분봉 BTC-ETH-LINK-SOL OOS wealth curve"><figcaption>BTC-ETH-LINK-SOL</figcaption></figure>
+<figure class="curve-card reveal"><img src="assets/results/wealth_1m_5.png" alt="1분봉 BTC-AVAX-DOGE-ETH OOS wealth curve"><figcaption>BTC-AVAX-DOGE-ETH</figcaption></figure>
+<figure class="curve-card reveal"><img src="assets/results/wealth_1m_6.png" alt="1분봉 BTC-LINK-SOL OOS wealth curve"><figcaption>BTC-LINK-SOL</figcaption></figure></div>
+      </details>
+    </section>
+
+    <section id="backtest15m" class="section-shell alt-bg">
+      <div class="section-head reveal">
+        <span>03</span>
+        <div><p>15m Rolling OOS</p><h2>15분봉에서는<br>두 후보 모두 수익성 미확인</h2></div>
+        <p>1분봉과 동일한 rolling 구조를 사용하되, 15분봉 screening에서 선별된 2개 바스켓만 검증했습니다.</p>
+      </div>
+
+      <div class="two-col">
+        <figure class="chart-card reveal"><img src="assets/charts/15m_returns_0bps.png" alt="15분봉 OOS 누적수익률 비교"><figcaption>두 후보 모두 0bps 추가 슬리피지에서도 누적수익률이 음(-)</figcaption></figure>
+        <div class="panel reveal">
+          <h3>15m OOS summary</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Basket</th><th>Return</th><th>Sharpe</th><th>MDD</th><th>Trades</th><th>Win rate</th><th>Coint. windows</th></tr></thead>
+              <tbody>
+      <tr>
+        <td>BTC|ADA|DOT|TRX</td>
+        <td>-4.91%</td>
+        <td>-1.19</td>
+        <td>-9.99%</td>
+        <td>12</td>
+        <td>58.33%</td>
+        <td>20.5%</td>
+      </tr>
+      <tr>
+        <td>BTC|LINK|SOL|TRX</td>
+        <td>-4.98%</td>
+        <td>-1.08</td>
+        <td>-8.82%</td>
+        <td>14</td>
+        <td>57.14%</td>
+        <td>28.2%</td>
+      </tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="curve-grid"><figure class="curve-card reveal"><img src="assets/results/wealth_15m_1.png" alt="15분봉 BTC-ADA-DOT-TRX OOS wealth curve"><figcaption>BTC-ADA-DOT-TRX</figcaption></figure>
+<figure class="curve-card reveal"><img src="assets/results/wealth_15m_2.png" alt="15분봉 BTC-LINK-SOL-TRX OOS wealth curve"><figcaption>BTC-LINK-SOL-TRX</figcaption></figure></div>
+    </section>
+
+    <section id="interpretation" class="section-shell">
+      <div class="section-head reveal">
+        <span>04</span>
+        <div><p>Interpretation</p><h2>분석 결과가 말해주는 것</h2></div>
+        <p>통계적 공적분 관계가 존재해도 그 관계가 모든 OOS 구간에서 유지되거나 거래비용 이후 수익으로 연결되는 것은 아니었습니다.</p>
+      </div>
+
+      <div class="insight-grid">
+        <article class="insight reveal"><span>01</span><h3>In-sample ≠ OOS profitability</h3><p>스크리닝을 통과한 1분봉 6개 중 5개는 OOS 누적수익률이 음수였습니다. 공적분·정상성 검정은 거래 전략의 충분조건이 아닙니다.</p></article>
+        <article class="insight reveal"><span>02</span><h3>관계의 지속성도 제한적</h3><p>1분봉 후보의 공적분 유지 비율은 약 25.6%~61.5%, 15분봉은 20.5%~28.2%였습니다. Train에서 찾은 구조가 Test에서도 계속 존재하지 않았습니다.</p></article>
+        <article class="insight reveal"><span>03</span><h3>비용 민감도</h3><p>최고 1분봉 바스켓도 추가 슬리피지가 커질수록 수익률과 Sharpe가 빠르게 감소했습니다. 평균회귀 전략에서 회전율과 체결비용이 핵심입니다.</p></article>
+        <article class="insight reveal"><span>04</span><h3>잔차 자기상관</h3><p>screening 결과의 Ljung-Box p-value가 매우 작아 잔차 자기상관이 남아 있습니다. AR(1)/OU 기반 반감기는 유용한 요약치지만 단순화된 근사로 해석할 필요가 있습니다.</p></article>
+      </div>
+
+      <aside class="next-step reveal">
+        <strong>다음 검증 단계</strong>
+        <p>후보 선택까지 각 Train window 내부에서 다시 수행하는 <b>nested rolling OOS</b>, 거래비용·체결지연 스트레스 테스트, z-score·entry/exit parameter 민감도 분석을 추가하면 전략의 재현성과 실제 운용 가능성을 더 엄격하게 확인할 수 있습니다.</p>
+      </aside>
+    </section>
+
+    <section id="code" class="section-shell code-section alt-bg">
+      <div class="section-head reveal">
+        <span>05</span>
+        <div><p>Code Explorer</p><h2>분석 코드와 결과 파일</h2></div>
+        <p>웹페이지에는 핵심 로직을 그대로 펼쳐볼 수 있게 넣었고, 원본 Jupyter Notebook과 CSV도 함께 포함했습니다.</p>
+      </div>
+
+      <div class="downloads reveal">
+        <a href="source/Johansen_test_1m.ipynb" download>Johansen 1m ↓</a>
+        <a href="source/Johansen_test_15m.ipynb" download>Johansen 15m ↓</a>
+        <a href="source/1m_backtest.ipynb" download>1m Backtest ↓</a>
+        <a href="source/15m_backtest.ipynb" download>15m Backtest ↓</a>
+        <a href="source/1m_backtest_summary.csv" download>1m Summary CSV ↓</a>
+        <a href="source/15m_backtest_summary.csv" download>15m Summary CSV ↓</a>
+      </div>
+
+      <div class="code-accordions">
+        <details class="code-details reveal"><summary>Johansen_test_1m.ipynb 전체 코드 <span>+</span></summary><pre><code>!pip install statsmodels
+
+# ─────────────────────────────────────────
+
+import numpy as np
+import pandas as pd
+from statsmodels.tsa.stattools import adfuller
+from google.colab import drive
+
+drive.mount(&#x27;/content/drive&#x27;)
+
+PATH = &quot;/content/drive/MyDrive/코인데이터/ALL_1m.parquet&quot;
+
+# 1) 데이터 로드
+df = pd.read_parquet(PATH)
+
+# 2025년만 사용
+df = df.loc[&quot;2025-01-01&quot;:&quot;2025-12-31&quot;]
+
+results = []
+
+for col in df.columns:
+
+    series = df[col].dropna()
+    series = series[series &gt; 0]
+
+    if len(series) &lt; 5000:
+        continue
+
+    logp = np.log(series)
+
+    # 레벨 ADF (unit root 존재 여부 확인)
+    adf_level = adfuller(logp.values, regression=&quot;c&quot;, maxlag=1, autolag=None)
+    p_level = adf_level[1]
+
+    # 1차 차분 ADF
+    diff1 = logp.diff().dropna()
+    adf_diff = adfuller(diff1.values, regression=&quot;c&quot;, maxlag=1, autolag=None)
+    p_diff = adf_diff[1]
+
+    is_I1 = (p_level &gt; 0.05) and (p_diff &lt; 0.05)
+
+    results.append({
+        &quot;coin&quot;: col,
+        &quot;p_level&quot;: p_level,
+        &quot;p_diff1&quot;: p_diff,
+        &quot;is_I(1)&quot;: is_I1,
+        &quot;n_obs&quot;: len(logp)
+    })
+
+result_df = pd.DataFrame(results).sort_values(&quot;p_diff1&quot;)
+
+pd.set_option(&quot;display.max_rows&quot;, None)
+print(result_df.to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 2) VAR lag 선택 (AIC/BIC) + 바스켓 생성 + basket_key 생성
+
+import numpy as np
+import pandas as pd
+import itertools
+from statsmodels.tsa.vector_ar.var_model import VAR
+from google.colab import drive
+
+drive.mount(&#x27;/content/drive&#x27;)
+
+PATH = &quot;/content/drive/MyDrive/코인데이터/ALL_1m.parquet&quot;
+
+BASE = &quot;KRW-BTC&quot;
+MAXLAGS = 5
+MIN_ROWS = 20000
+
+df = pd.read_parquet(PATH)
+df = df.loc[&quot;2025-01-01&quot;:&quot;2025-12-31&quot;].sort_index()
+
+# 1) 단계에서 I(1)으로 판정된 코인만 사용
+I1_COINS = result_df.loc[result_df[&quot;is_I(1)&quot;] == True, &quot;coin&quot;].tolist()
+if BASE not in I1_COINS:
+    raise ValueError(f&quot;{BASE}가 I(1) 조건을 만족하지 않아 바스켓을 구성할 수 없습니다.&quot;)
+
+all_coins = [c for c in I1_COINS if c in df.columns]
+others = [c for c in all_coins if c != BASE]
+
+baskets = []
+for combo in itertools.combinations(others, 2):
+    baskets.append([BASE] + list(combo))
+for combo in itertools.combinations(others, 3):
+    baskets.append([BASE] + list(combo))
+
+def prep_logp_for_basket(basket):
+    prices = df[basket].dropna(how=&quot;any&quot;)
+    prices = prices[(prices &gt; 0).all(axis=1)]
+    if len(prices) &lt; MIN_ROWS:
+        return None
+    return np.log(prices)
+
+lag_rows = []
+
+for B in baskets:
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+    try:
+        sel = VAR(logp.values).select_order(maxlags=MAXLAGS)
+        p_aic = sel.aic
+        p_bic = sel.bic
+
+        p_used = p_aic if p_aic is not None else p_bic
+        if p_used is None:
+            p_used = 1
+        p_used = max(int(p_used), 1)
+
+        k_ar_diff = max(p_used - 1, 0)
+
+        lag_rows.append({
+            &quot;basket_key&quot;: &quot;|&quot;.join(B),
+            &quot;basket&quot;: B,
+            &quot;n_rows&quot;: len(logp),
+            &quot;p_aic&quot;: None if p_aic is None else int(p_aic),
+            &quot;p_bic&quot;: None if p_bic is None else int(p_bic),
+            &quot;p_used&quot;: p_used,
+            &quot;k_ar_diff&quot;: k_ar_diff,
+        })
+    except Exception:
+        continue
+
+lag_df = pd.DataFrame(lag_rows).sort_values([&quot;n_rows&quot;], ascending=False)
+print(&quot;lag_df rows:&quot;, len(lag_df))
+print(lag_df.head(10).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 3) Johansen test (rank 결정) + candidates_df 생성
+
+from statsmodels.tsa.vector_ar.vecm import coint_johansen
+
+DET_ORDER = 0
+
+def choose_rank_trace(jres, alpha=0.05):
+    col = {0.10: 0, 0.05: 1, 0.01: 2}[alpha]
+    rank = 0
+    for r in range(len(jres.lr1)):
+        if jres.lr1[r] &gt; jres.cvt[r, col]:
+            rank = r + 1
+    return rank
+
+joh_rows = []
+
+for _, row in lag_df.iterrows():
+    B = row[&quot;basket&quot;]
+    k_ar_diff = int(row[&quot;k_ar_diff&quot;])
+    basket_key = row[&quot;basket_key&quot;]
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+
+    try:
+        jres = coint_johansen(logp.values, det_order=DET_ORDER, k_ar_diff=k_ar_diff)
+        r10 = choose_rank_trace(jres, 0.10)
+        r05 = choose_rank_trace(jres, 0.05)
+        r01 = choose_rank_trace(jres, 0.01)
+
+        joh_rows.append({
+            &quot;basket_key&quot;: basket_key,
+            &quot;basket&quot;: B,
+            &quot;k_ar_diff&quot;: k_ar_diff,
+            &quot;rank_10%&quot;: r10,
+            &quot;rank_5%&quot;: r05,
+            &quot;rank_1%&quot;: r01,
+        })
+    except Exception:
+        continue
+
+joh_df = pd.DataFrame(joh_rows).sort_values([&quot;rank_5%&quot;, &quot;rank_10%&quot;], ascending=[False, False])
+print(&quot;joh_df rows:&quot;, len(joh_df))
+print(joh_df.head(20).to_string(index=False))
+
+candidates_df = joh_df[joh_df[&quot;rank_5%&quot;] &gt;= 1].copy()
+print(&quot;\ncandidates (rank_5%&gt;=1):&quot;, len(candidates_df))
+
+# ─────────────────────────────────────────
+
+# 4) 공적분 벡터 가중치(weights) 생성 (rank 개수만큼), weights_df 생성
+
+def normalize_on_anchor(vec, anchor_idx):
+    v = vec.astype(float).copy()
+    if abs(v[anchor_idx]) &lt; 1e-12:
+        v = v / (np.max(np.abs(v)) + 1e-12)
+    else:
+        v = v / v[anchor_idx]
+    return v
+
+weight_rows = []
+
+for _, row in candidates_df.iterrows():
+    B = row[&quot;basket&quot;]
+    basket_key = row[&quot;basket_key&quot;]
+    k_ar_diff = int(row[&quot;k_ar_diff&quot;])
+    rank = int(row[&quot;rank_5%&quot;])
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+
+    cols = list(logp.columns)
+    anchor_idx = cols.index(BASE)
+
+    try:
+        jres = coint_johansen(logp.values, det_order=DET_ORDER, k_ar_diff=k_ar_diff)
+    except Exception:
+        continue
+
+    for i in range(rank):
+        w = normalize_on_anchor(jres.evec[:, i], anchor_idx)
+        weights = pd.Series(w, index=cols).to_dict()
+
+        weight_rows.append({
+            &quot;basket_key&quot;: basket_key,
+            &quot;basket&quot;: B,
+            &quot;k_ar_diff&quot;: k_ar_diff,
+            &quot;rank_5%&quot;: rank,
+            &quot;vector_number&quot;: i + 1,
+            &quot;weights&quot;: weights
+        })
+
+weights_df = pd.DataFrame(weight_rows).sort_values(
+    [&quot;rank_5%&quot;, &quot;basket_key&quot;, &quot;vector_number&quot;],
+    ascending=[False, True, True]
+)
+
+print(&quot;weights_df rows:&quot;, len(weights_df))
+print(weights_df.head(10).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 5) 스프레드 정상성 확인 (ADF), spread_adf_df 생성 (안전 버전)
+
+from statsmodels.tsa.stattools import adfuller
+
+def build_spread(logp_df, weights_dict):
+    w = np.array([weights_dict[c] for c in logp_df.columns], dtype=float)
+    return pd.Series(logp_df.values @ w, index=logp_df.index)
+
+spread_adf_rows = []
+
+cnt_total = 0
+cnt_logp_none = 0
+cnt_spread_short = 0
+cnt_adf_fail = 0
+cnt_ok = 0
+
+for _, row in weights_df.iterrows():
+    cnt_total += 1
+
+    B = row[&quot;basket&quot;]
+    basket_key = row[&quot;basket_key&quot;]
+    weights = row[&quot;weights&quot;]
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        cnt_logp_none += 1
+        continue
+
+    spread = build_spread(logp, weights).dropna().astype(float)
+    if len(spread) &lt; 2000:
+        cnt_spread_short += 1
+        continue
+
+    try:
+        stat, pval, usedlag, nobs, crit = adfuller(
+            spread.values,
+            regression=&quot;c&quot;,
+            maxlag=1,
+            autolag=None
+        )
+        spread_adf_rows.append({
+            &quot;basket_key&quot;: basket_key,
+            &quot;vector_number&quot;: int(row[&quot;vector_number&quot;]),
+            &quot;spread_adf_p&quot;: float(pval),
+            &quot;spread_adf_stat&quot;: float(stat),
+            &quot;nobs&quot;: int(nobs),
+            &quot;used_lag&quot;: int(usedlag),
+        })
+        cnt_ok += 1
+    except Exception:
+        cnt_adf_fail += 1
+        continue
+
+print(&quot;weights_df rows:&quot;, len(weights_df))
+print(&quot;total tried:&quot;, cnt_total)
+print(&quot;skipped (logp None):&quot;, cnt_logp_none)
+print(&quot;skipped (spread too short):&quot;, cnt_spread_short)
+print(&quot;failed (adfuller exception):&quot;, cnt_adf_fail)
+print(&quot;ok:&quot;, cnt_ok)
+
+if len(spread_adf_rows) == 0:
+    print(&quot;spread_adf_rows is empty. No ADF results to sort.&quot;)
+    spread_adf_df = pd.DataFrame(columns=[
+        &quot;basket_key&quot;,&quot;vector_number&quot;,&quot;spread_adf_p&quot;,&quot;spread_adf_stat&quot;,&quot;nobs&quot;,&quot;used_lag&quot;
+    ])
+else:
+    spread_adf_df = pd.DataFrame(spread_adf_rows).sort_values(&quot;spread_adf_p&quot;)
+
+print(&quot;spread_adf_df rows:&quot;, len(spread_adf_df))
+print(spread_adf_df.head(20).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 6) AR(1) 적합 가능 확인 (b&lt;0, R^2, Ljung-Box), ar1_df 생성
+
+from statsmodels.stats.diagnostic import acorr_ljungbox
+
+ar1_rows = []
+
+for _, row in weights_df.iterrows():
+    B = row[&quot;basket&quot;]
+    basket_key = row[&quot;basket_key&quot;]
+    weights = row[&quot;weights&quot;]
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+
+    spread = build_spread(logp, weights).dropna().astype(float)
+    if len(spread) &lt; 2000:
+        continue
+
+    s_lag = spread.shift(1).dropna()
+    ds = spread.diff().dropna()
+    ds = ds.loc[s_lag.index]
+
+    X = np.column_stack([np.ones(len(s_lag)), s_lag.values])
+    y = ds.values
+
+    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+    a, b = float(beta[0]), float(beta[1])
+
+    yhat = X @ beta
+    resid = y - yhat
+
+    sse = float(np.sum((y - yhat) ** 2))
+    sst = float(np.sum((y - np.mean(y)) ** 2))
+    r2 = 1.0 - (sse / sst) if sst &gt; 0 else np.nan
+
+    try:
+        lb = acorr_ljungbox(resid, lags=[20], return_df=True)
+        lb_p = float(lb[&quot;lb_pvalue&quot;].iloc[0])
+    except Exception:
+        lb_p = np.nan
+
+    ar1_rows.append({
+        &quot;basket_key&quot;: basket_key,
+        &quot;vector_number&quot;: int(row[&quot;vector_number&quot;]),
+        &quot;a&quot;: a,
+        &quot;b&quot;: b,
+        &quot;b_negative&quot;: (b &lt; 0),
+        &quot;r2&quot;: float(r2),
+        &quot;ljungbox_p_lag20&quot;: lb_p,
+        &quot;n&quot;: int(len(y)),
+    })
+
+ar1_df = pd.DataFrame(ar1_rows)
+print(&quot;ar1_df rows:&quot;, len(ar1_df))
+print(ar1_df.sort_values([&quot;b_negative&quot;, &quot;ljungbox_p_lag20&quot;], ascending=[False, False]).head(20).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 7) 반감기 계산 + 최종 결합/정렬 + 저장
+
+def half_life_from_b(b):
+    if b is None or np.isnan(b):
+        return np.nan
+    if b &gt;= 0:
+        return np.inf
+    return float(-np.log(2) / b)
+
+final = (weights_df
+         .merge(spread_adf_df, on=[&quot;basket_key&quot;, &quot;vector_number&quot;], how=&quot;left&quot;)
+         .merge(ar1_df, on=[&quot;basket_key&quot;, &quot;vector_number&quot;], how=&quot;left&quot;))
+
+final[&quot;half_life_minutes&quot;] = final[&quot;b&quot;].apply(half_life_from_b)
+
+final = final.sort_values(
+    by=[&quot;rank_5%&quot;, &quot;spread_adf_p&quot;, &quot;half_life_minutes&quot;],
+    ascending=[False, True, True]
+)
+
+pd.set_option(&quot;display.max_rows&quot;, None)
+pd.set_option(&quot;display.max_colwidth&quot;, None)
+
+print(final[[
+    &quot;basket_key&quot;, &quot;basket&quot;, &quot;rank_5%&quot;, &quot;vector_number&quot;, &quot;k_ar_diff&quot;,
+    &quot;spread_adf_p&quot;, &quot;b&quot;, &quot;ljungbox_p_lag20&quot;, &quot;half_life_minutes&quot;, &quot;weights&quot;
+]].to_string(index=False))
+
+final.to_csv(&quot;cointegration_screen_1m_2025.csv&quot;, index=False, encoding=&quot;utf-8-sig&quot;)
+print(&quot;\nSaved: cointegration_screen_1m_2025.csv&quot;)</code></pre></details>
+        <details class="code-details reveal"><summary>Johansen_test_15m.ipynb 전체 코드 <span>+</span></summary><pre><code># 1) 15분봉 생성 + 각 시계열 I(1) 확인 (레벨/1차차분 ADF)
+
+import numpy as np
+import pandas as pd
+from statsmodels.tsa.stattools import adfuller
+from google.colab import drive
+
+drive.mount(&#x27;/content/drive&#x27;)
+
+PATH = &quot;/content/drive/MyDrive/코인데이터/ALL_1m.parquet&quot;
+BASE = &quot;KRW-BTC&quot;
+
+df_1m = pd.read_parquet(PATH).sort_index()
+df_1m = df_1m.loc[&quot;2025-01-01&quot;:&quot;2025-12-31&quot;]
+
+# 15분봉 (pandas 경고 방지: &#x27;15min&#x27; 사용)
+df = df_1m.resample(&quot;15min&quot;).last()
+
+def adf_pvalue(x, regression=&quot;c&quot;, maxlag=1):
+    x = np.asarray(x)
+    return float(adfuller(x, regression=regression, maxlag=maxlag, autolag=None)[1])
+
+i1_rows = []
+for c in df.columns:
+    s = df[c].dropna()
+    s = s[s &gt; 0]
+    if len(s) &lt; 5000:
+        continue
+    logp = np.log(s)
+    p_level = adf_pvalue(logp.values, regression=&quot;c&quot;, maxlag=1)
+    p_diff1 = adf_pvalue(logp.diff().dropna().values, regression=&quot;c&quot;, maxlag=1)
+    is_i1 = (p_level &gt; 0.05) and (p_diff1 &lt; 0.05)
+    i1_rows.append({&quot;coin&quot;: c, &quot;p_level&quot;: p_level, &quot;p_diff1&quot;: p_diff1, &quot;is_I(1)&quot;: is_i1, &quot;n_obs&quot;: len(logp)})
+
+i1_df = pd.DataFrame(i1_rows).sort_values([&quot;is_I(1)&quot;, &quot;p_diff1&quot;], ascending=[False, True])
+pd.set_option(&quot;display.max_rows&quot;, None)
+print(i1_df.to_string(index=False))
+
+I1_COINS = i1_df.loc[i1_df[&quot;is_I(1)&quot;] == True, &quot;coin&quot;].tolist()
+print(&quot;\nI(1) coins:&quot;, I1_COINS)
+
+# ─────────────────────────────────────────
+
+# 2) 바스켓 생성 (BTC 필수) + VAR lag 선택 (AIC/BIC)
+
+import itertools
+from statsmodels.tsa.vector_ar.var_model import VAR
+
+MAXLAGS = 10
+MIN_ROWS = 5000
+
+# BTC 포함 + I(1) 코인만
+others = [c for c in I1_COINS if c != BASE]
+
+baskets = []
+for combo in itertools.combinations(others, 2):   # BTC+2 (3자산)
+    baskets.append([BASE] + list(combo))
+for combo in itertools.combinations(others, 3):   # BTC+3 (4자산)
+    baskets.append([BASE] + list(combo))
+
+def prep_logp_for_basket(basket):
+    prices = df[basket].dropna(how=&quot;any&quot;)
+    prices = prices[(prices &gt; 0).all(axis=1)]
+    if len(prices) &lt; MIN_ROWS:
+        return None
+    return np.log(prices)
+
+lag_rows = []
+for B in baskets:
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+    try:
+        sel = VAR(logp.values).select_order(maxlags=MAXLAGS)
+        p_aic = sel.aic
+        p_bic = sel.bic
+        p_used = p_aic if p_aic is not None else p_bic
+        if p_used is None:
+            p_used = 1
+        p_used = max(int(p_used), 1)
+        k_ar_diff = max(p_used - 1, 0)
+        lag_rows.append({
+            &quot;basket_key&quot;: &quot;|&quot;.join(B),
+            &quot;basket&quot;: B,
+            &quot;n_rows&quot;: len(logp),
+            &quot;p_aic&quot;: None if p_aic is None else int(p_aic),
+            &quot;p_bic&quot;: None if p_bic is None else int(p_bic),
+            &quot;p_used&quot;: p_used,
+            &quot;k_ar_diff&quot;: k_ar_diff
+        })
+    except Exception:
+        continue
+
+lag_df = pd.DataFrame(lag_rows).sort_values([&quot;n_rows&quot;], ascending=False)
+print(&quot;lag_df rows:&quot;, len(lag_df))
+print(lag_df.head(10).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 3) Johansen test (rank 결정)
+
+from statsmodels.tsa.vector_ar.vecm import coint_johansen
+
+DET_ORDER = 0
+
+def choose_rank_trace(jres, alpha=0.05):
+    col = {0.10: 0, 0.05: 1, 0.01: 2}[alpha]
+    rank = 0
+    for r in range(len(jres.lr1)):
+        if jres.lr1[r] &gt; jres.cvt[r, col]:
+            rank = r + 1
+    return rank
+
+joh_rows = []
+for _, row in lag_df.iterrows():
+    B = row[&quot;basket&quot;]
+    basket_key = row[&quot;basket_key&quot;]
+    k_ar_diff = int(row[&quot;k_ar_diff&quot;])
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+
+    try:
+        jres = coint_johansen(logp.values, det_order=DET_ORDER, k_ar_diff=k_ar_diff)
+        r10 = choose_rank_trace(jres, 0.10)
+        r05 = choose_rank_trace(jres, 0.05)
+        r01 = choose_rank_trace(jres, 0.01)
+        joh_rows.append({
+            &quot;basket_key&quot;: basket_key,
+            &quot;basket&quot;: B,
+            &quot;k_ar_diff&quot;: k_ar_diff,
+            &quot;rank_10%&quot;: r10,
+            &quot;rank_5%&quot;: r05,
+            &quot;rank_1%&quot;: r01
+        })
+    except Exception:
+        continue
+
+joh_df = pd.DataFrame(joh_rows).sort_values([&quot;rank_5%&quot;, &quot;rank_10%&quot;], ascending=[False, False])
+print(&quot;joh_df rows:&quot;, len(joh_df))
+print(joh_df.head(20).to_string(index=False))
+
+candidates_df = joh_df[joh_df[&quot;rank_5%&quot;] &gt;= 1].copy()
+print(&quot;\ncandidates (rank_5%&gt;=1):&quot;, len(candidates_df))
+
+# ─────────────────────────────────────────
+
+# 4) 공적분 벡터 가중치(weights) 생성 (rank 개수만큼)
+
+def normalize_on_anchor(vec, anchor_idx):
+    v = vec.astype(float).copy()
+    if abs(v[anchor_idx]) &lt; 1e-12:
+        v = v / (np.max(np.abs(v)) + 1e-12)
+    else:
+        v = v / v[anchor_idx]
+    return v
+
+weight_rows = []
+for _, row in candidates_df.iterrows():
+    B = row[&quot;basket&quot;]
+    basket_key = row[&quot;basket_key&quot;]
+    k_ar_diff = int(row[&quot;k_ar_diff&quot;])
+    rank = int(row[&quot;rank_5%&quot;])
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+
+    cols = list(logp.columns)
+    anchor_idx = cols.index(BASE)
+
+    try:
+        jres = coint_johansen(logp.values, det_order=DET_ORDER, k_ar_diff=k_ar_diff)
+    except Exception:
+        continue
+
+    for i in range(rank):
+        w = normalize_on_anchor(jres.evec[:, i], anchor_idx)
+        weights = pd.Series(w, index=cols).to_dict()
+        weight_rows.append({
+            &quot;basket_key&quot;: basket_key,
+            &quot;basket&quot;: B,
+            &quot;k_ar_diff&quot;: k_ar_diff,
+            &quot;rank_5%&quot;: rank,
+            &quot;vector_number&quot;: i + 1,
+            &quot;weights&quot;: weights
+        })
+
+weights_df = pd.DataFrame(weight_rows).sort_values(
+    [&quot;rank_5%&quot;, &quot;basket_key&quot;, &quot;vector_number&quot;],
+    ascending=[False, True, True]
+)
+print(&quot;weights_df rows:&quot;, len(weights_df))
+print(weights_df.head(10).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 5) 스프레드 구성 + 스프레드 정상성(ADF)
+
+from statsmodels.tsa.stattools import adfuller
+
+def build_spread(logp_df, weights_dict):
+    w = np.array([weights_dict[c] for c in logp_df.columns], dtype=float)
+    return pd.Series(logp_df.values @ w, index=logp_df.index)
+
+spread_adf_rows = []
+for _, row in weights_df.iterrows():
+    B = row[&quot;basket&quot;]
+    basket_key = row[&quot;basket_key&quot;]
+    weights = row[&quot;weights&quot;]
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+
+    spread = build_spread(logp, weights).dropna().astype(float)
+
+    try:
+        stat, pval, usedlag, nobs, crit, _ = adfuller(spread.values, regression=&quot;c&quot;, maxlag=5, autolag=&quot;AIC&quot;)
+        spread_adf_rows.append({
+            &quot;basket_key&quot;: basket_key,
+            &quot;vector_number&quot;: int(row[&quot;vector_number&quot;]),
+            &quot;spread_adf_p&quot;: float(pval),
+            &quot;spread_adf_stat&quot;: float(stat),
+            &quot;nobs&quot;: int(nobs),
+            &quot;used_lag&quot;: int(usedlag)
+        })
+    except Exception:
+        continue
+
+spread_adf_df = pd.DataFrame(spread_adf_rows)
+print(&quot;spread_adf_df rows:&quot;, len(spread_adf_df))
+
+if len(spread_adf_df) == 0:
+    print(&quot;No ADF results.&quot;)
+else:
+    spread_adf_df = spread_adf_df.sort_values(&quot;spread_adf_p&quot;)
+    print(spread_adf_df.head(20).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 6) AR(1) 적합 가능 확인 (b&lt;0, Ljung-Box)
+
+from statsmodels.stats.diagnostic import acorr_ljungbox
+
+ar1_rows = []
+for _, row in weights_df.iterrows():
+    B = row[&quot;basket&quot;]
+    basket_key = row[&quot;basket_key&quot;]
+    weights = row[&quot;weights&quot;]
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+
+    spread = build_spread(logp, weights).dropna().astype(float)
+    if len(spread) &lt; 2000:
+        continue
+
+    s_lag = spread.shift(1).dropna()
+    ds = spread.diff().dropna()
+    ds = ds.loc[s_lag.index]
+
+    X = np.column_stack([np.ones(len(s_lag)), s_lag.values])
+    y = ds.values
+
+    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+    a, b = float(beta[0]), float(beta[1])
+
+    yhat = X @ beta
+    resid = y - yhat
+
+    try:
+        lb = acorr_ljungbox(resid, lags=[20], return_df=True)
+        lb_p = float(lb[&quot;lb_pvalue&quot;].iloc[0])
+    except Exception:
+        lb_p = np.nan
+
+    ar1_rows.append({
+        &quot;basket_key&quot;: basket_key,
+        &quot;vector_number&quot;: int(row[&quot;vector_number&quot;]),
+        &quot;a&quot;: a,
+        &quot;b&quot;: b,
+        &quot;b_negative&quot;: (b &lt; 0),
+        &quot;ljungbox_p_lag20&quot;: lb_p,
+        &quot;n&quot;: int(len(y))
+    })
+
+ar1_df = pd.DataFrame(ar1_rows)
+print(&quot;ar1_df rows:&quot;, len(ar1_df))
+
+if len(ar1_df) == 0:
+    print(&quot;No AR(1) results.&quot;)
+else:
+    print(ar1_df.sort_values([&quot;b_negative&quot;, &quot;ljungbox_p_lag20&quot;], ascending=[False, False]).head(20).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 7번) OU 모델 기반 반감기 계산 (X_{t+1} = alpha + beta X_t)
+
+import numpy as np
+import pandas as pd
+
+BAR_MINUTES = 15  # 15분봉
+DT = BAR_MINUTES  # 단위를 &quot;분&quot;으로 두고 진행 (kappa: 1/분)
+
+def ou_fit_half_life(spread: pd.Series, dt_minutes=15):
+    s = spread.dropna().astype(float)
+
+    # OU 회귀: X_{t+1} = alpha + beta X_t + eps
+    x = s.shift(1).dropna()
+    y = s.loc[x.index]
+
+    if len(x) &lt; 2000:
+        return None
+
+    X = np.column_stack([np.ones(len(x)), x.values])
+    beta_hat = np.linalg.lstsq(X, y.values, rcond=None)[0]
+    alpha, beta = float(beta_hat[0]), float(beta_hat[1])
+
+    # 안정성 조건: |beta| &lt; 1 이어야 평균복귀 OU로 해석 가능
+    if not np.isfinite(beta) or beta &lt;= 0 or beta &gt;= 1:
+        return {
+            &quot;alpha&quot;: alpha, &quot;beta&quot;: beta,
+            &quot;kappa_per_min&quot;: np.nan,
+            &quot;mu&quot;: np.nan,
+            &quot;half_life_bars&quot;: np.inf,
+            &quot;half_life_minutes&quot;: np.inf
+        }
+
+    # OU 파라미터 변환
+    kappa_per_min = -np.log(beta) / dt_minutes
+    mu = alpha / (1 - beta)
+
+    # 반감기
+    half_life_minutes = np.log(2) / kappa_per_min
+    half_life_bars = half_life_minutes / dt_minutes
+
+    return {
+        &quot;alpha&quot;: alpha,
+        &quot;beta&quot;: beta,
+        &quot;kappa_per_min&quot;: kappa_per_min,
+        &quot;mu&quot;: mu,
+        &quot;half_life_bars&quot;: half_life_bars,
+        &quot;half_life_minutes&quot;: half_life_minutes
+    }
+
+ou_rows = []
+
+for _, row in weights_df.iterrows():
+    B = row[&quot;basket&quot;]
+    basket_key = row[&quot;basket_key&quot;]
+    vnum = int(row[&quot;vector_number&quot;])
+    weights = row[&quot;weights&quot;]
+
+    logp = prep_logp_for_basket(B)
+    if logp is None:
+        continue
+
+    spread = build_spread(logp, weights)
+
+    res = ou_fit_half_life(spread, dt_minutes=DT)
+    if res is None:
+        continue
+
+    ou_rows.append({
+        &quot;basket_key&quot;: basket_key,
+        &quot;vector_number&quot;: vnum,
+        **res
+    })
+
+ou_df = pd.DataFrame(ou_rows)
+
+print(&quot;ou_df rows:&quot;, len(ou_df))
+if len(ou_df) &gt; 0:
+    print(ou_df.sort_values([&quot;half_life_minutes&quot;]).head(20).to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 후보 필터링 (OU + ADF)
+
+HL_MIN_HOURS = 6
+HL_MAX_DAYS = 5
+ADF_P_MAX = 0.05
+
+HL_MIN = HL_MIN_HOURS * 60
+HL_MAX = HL_MAX_DAYS * 24 * 60
+
+tmp = (weights_df
+       .merge(spread_adf_df, on=[&quot;basket_key&quot;,&quot;vector_number&quot;], how=&quot;left&quot;)
+       .merge(ar1_df,        on=[&quot;basket_key&quot;,&quot;vector_number&quot;], how=&quot;left&quot;)
+       .merge(ou_df,         on=[&quot;basket_key&quot;,&quot;vector_number&quot;], how=&quot;left&quot;))
+
+# 필수 조건
+cand = tmp[
+    (tmp[&quot;spread_adf_p&quot;].notna()) &amp;
+    (tmp[&quot;spread_adf_p&quot;] &lt; ADF_P_MAX) &amp;
+    (tmp[&quot;beta&quot;].notna()) &amp;
+    (tmp[&quot;beta&quot;] &gt; 0) &amp; (tmp[&quot;beta&quot;] &lt; 1) &amp;
+    (tmp[&quot;half_life_minutes&quot;].notna()) &amp;
+    (tmp[&quot;half_life_minutes&quot;] &gt;= HL_MIN) &amp;
+    (tmp[&quot;half_life_minutes&quot;] &lt;= HL_MAX)
+].copy()
+
+# 보기 좋은 시간 단위 컬럼
+cand[&quot;half_life_hours&quot;] = cand[&quot;half_life_minutes&quot;] / 60
+cand[&quot;half_life_days&quot;] = cand[&quot;half_life_minutes&quot;] / (60*24)
+
+# 정렬: 정상성 강함(ADF p 낮을수록) + 반감기 짧을수록
+cand = cand.sort_values([&quot;spread_adf_p&quot;, &quot;half_life_minutes&quot;], ascending=[True, True])
+
+print(&quot;Filtered candidates:&quot;, len(cand))
+pd.set_option(&quot;display.max_colwidth&quot;, None)
+
+cols = [
+    &quot;basket_key&quot;,&quot;basket&quot;,&quot;vector_number&quot;,&quot;rank_5%&quot;,&quot;k_ar_diff&quot;,
+    &quot;spread_adf_p&quot;,&quot;spread_adf_stat&quot;,
+    &quot;beta&quot;,&quot;kappa_per_min&quot;,
+    &quot;half_life_minutes&quot;,&quot;half_life_hours&quot;,&quot;half_life_days&quot;,
+    &quot;ljungbox_p_lag20&quot;,&quot;weights&quot;
+]
+print(cand[cols].to_string(index=False))</code></pre></details>
+        <details class="code-details reveal"><summary>1m_backtest.ipynb 전체 코드 <span>+</span></summary><pre><code>!pip install -q statsmodels pyarrow
+
+# ─────────────────────────────────────────
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from statsmodels.tsa.vector_ar.vecm import coint_johansen
+from google.colab import drive
+
+drive.mount(&#x27;/content/drive&#x27;)
+
+PATH = &quot;/content/drive/MyDrive/코인데이터/ALL_1m.parquet&quot;
+
+df = pd.read_parquet(PATH).sort_index()
+df = df.loc[&quot;2025-01-01&quot;:&quot;2025-12-31&quot;]
+
+print(&quot;shape:&quot;, df.shape)
+print(&quot;period:&quot;, df.index.min(), &quot;~&quot;, df.index.max())
+print(df.columns.tolist())
+
+# ─────────────────────────────────────────
+
+# Johansen_test_1m 실행결과에서 ADF&lt;0.05, b&lt;0, 6h&lt;=half-life&lt;=5d 를 만족한 6개 후보
+
+BASKETS = [
+    [&quot;KRW-BTC&quot;, &quot;KRW-DOGE&quot;, &quot;KRW-DOT&quot;, &quot;KRW-ETH&quot;],
+    [&quot;KRW-BTC&quot;, &quot;KRW-AVAX&quot;, &quot;KRW-DOGE&quot;, &quot;KRW-XRP&quot;],
+    [&quot;KRW-BTC&quot;, &quot;KRW-LINK&quot;, &quot;KRW-SOL&quot;, &quot;KRW-XRP&quot;],
+    [&quot;KRW-BTC&quot;, &quot;KRW-ETH&quot;, &quot;KRW-LINK&quot;, &quot;KRW-SOL&quot;],
+    [&quot;KRW-BTC&quot;, &quot;KRW-AVAX&quot;, &quot;KRW-DOGE&quot;, &quot;KRW-ETH&quot;],
+    [&quot;KRW-BTC&quot;, &quot;KRW-LINK&quot;, &quot;KRW-SOL&quot;],
+]
+
+# 원래 1m screening에서 모든 후보의 VAR p_used=5 → Johansen k_ar_diff=4
+K_AR_DIFF = 4
+
+TRAIN_DAYS = 90
+TEST_DAYS = 7
+STEP_DAYS = 7
+ZSCORE_DAYS = 14
+
+ENTRY_Z = 2.0
+EXIT_Z = 0.5
+
+DET_ORDER = 0
+ALPHA_TRACE = 0.05
+
+BASE_TC_BPS = 5.0
+SLIPPAGE_CASES = [0.0, 5.0, 10.0]
+
+# time-based rolling에서 최소 관측치
+MIN_Z_OBS = 7 * 24 * 60
+MIN_TRAIN_OBS = 60 * 24 * 60
+
+# ─────────────────────────────────────────
+
+def choose_rank_trace(jres, alpha=0.05):
+    col = {0.10: 0, 0.05: 1, 0.01: 2}[alpha]
+    rank = 0
+    for r in range(len(jres.lr1)):
+        if jres.lr1[r] &gt; jres.cvt[r, col]:
+            rank = r + 1
+    return rank
+
+
+def johansen_weights_train(logp_train, det_order=0, k_ar_diff=4, alpha=0.05):
+    jres = coint_johansen(
+        logp_train.values,
+        det_order=det_order,
+        k_ar_diff=k_ar_diff
+    )
+    rank = choose_rank_trace(jres, alpha)
+
+    if rank &lt; 1:
+        return 0, None
+
+    v = jres.evec[:, 0].astype(float)
+
+    # 첫 자산(BTC) 계수를 1로 정규화
+    if abs(v[0]) &lt; 1e-12:
+        return 0, None
+
+    w = v / v[0]
+    return int(rank), dict(zip(logp_train.columns, w))
+
+
+def build_spread(logp, weights):
+    w = np.array([weights[c] for c in logp.columns], dtype=float)
+    return pd.Series(logp.values @ w, index=logp.index)
+
+
+def rolling_zscore_time(s, days=14):
+    # 과거 정보만 사용. 현재 시점까지의 trailing window.
+    m = s.rolling(f&quot;{days}D&quot;, min_periods=MIN_Z_OBS).mean()
+    sd = s.rolling(f&quot;{days}D&quot;, min_periods=MIN_Z_OBS).std(ddof=1)
+    return (s - m) / (sd + 1e-12)
+
+
+def gross_normalized_weights(weights):
+    # 바스켓마다 Johansen vector 크기가 달라 생기는 레버리지 차이를 제거
+    vals = np.array(list(weights.values()), dtype=float)
+    gross = np.sum(np.abs(vals))
+    if gross &lt;= 1e-12:
+        raise ValueError(&quot;gross exposure가 0입니다.&quot;)
+    return {k: v / gross for k, v in weights.items()}
+
+
+def max_drawdown_from_logret(ret):
+    wealth = np.exp(ret.fillna(0.0).cumsum())
+    peak = wealth.cummax()
+    dd = wealth / peak - 1.0
+    return float(dd.min())
+
+
+def sharpe_from_minute_logret(ret):
+    r = ret.dropna()
+    if len(r) &lt; 10 or r.std(ddof=1) &lt;= 1e-12:
+        return np.nan
+
+    # 1분 수익률을 그대로 연율화하면 microstructure 영향이 너무 커질 수 있으므로
+    # 일별 합산 로그수익률로 Sharpe를 계산
+    daily = r.resample(&quot;1D&quot;).sum()
+    if len(daily) &lt; 10 or daily.std(ddof=1) &lt;= 1e-12:
+        return np.nan
+
+    return float(daily.mean() / daily.std(ddof=1) * np.sqrt(365))
+
+
+def trade_stats(position, ret):
+    position = position.fillna(0).astype(int)
+    ret = ret.fillna(0.0)
+
+    trades = []
+    in_trade = False
+    st = None
+
+    for t, p in position.items():
+        if (not in_trade) and p != 0:
+            in_trade = True
+            st = t
+        elif in_trade and p == 0:
+            trades.append((st, t))
+            in_trade = False
+            st = None
+
+    if in_trade and st is not None:
+        trades.append((st, position.index[-1]))
+
+    if not trades:
+        return {
+            &quot;trades&quot;: 0,
+            &quot;avg_hold_hours&quot;: np.nan,
+            &quot;win_rate&quot;: np.nan,
+            &quot;avg_trade_return&quot;: np.nan
+        }
+
+    trade_returns = []
+    hold_hours = []
+
+    for st, ed in trades:
+        seg = ret.loc[st:ed]
+        trade_returns.append(float(np.expm1(seg.sum())))
+        hold_hours.append((ed - st).total_seconds() / 3600)
+
+    return {
+        &quot;trades&quot;: len(trades),
+        &quot;avg_hold_hours&quot;: float(np.mean(hold_hours)),
+        &quot;win_rate&quot;: float(np.mean(np.array(trade_returns) &gt; 0)),
+        &quot;avg_trade_return&quot;: float(np.mean(trade_returns)),
+    }
+
+# ─────────────────────────────────────────
+
+def backtest_one_basket(df_price, basket, slippage_bps=0.0):
+    px_all = df_price[basket].copy()
+    px_all = px_all.where(px_all &gt; 0)
+
+    first_valid = px_all.dropna(how=&quot;any&quot;).index.min()
+    last_valid = px_all.dropna(how=&quot;any&quot;).index.max()
+
+    if pd.isna(first_valid) or pd.isna(last_valid):
+        raise ValueError(f&quot;유효 데이터 없음: {basket}&quot;)
+
+    # 최소 90일 Train이 확보된 뒤부터 Test 시작
+    test_start = first_valid + pd.Timedelta(days=TRAIN_DAYS)
+    last_test_start = last_valid - pd.Timedelta(days=TEST_DAYS)
+
+    all_rows = []
+    window_rows = []
+
+    while test_start &lt;= last_test_start:
+        train_start = test_start - pd.Timedelta(days=TRAIN_DAYS)
+        test_end = test_start + pd.Timedelta(days=TEST_DAYS)
+
+        train_px = px_all.loc[train_start:test_start].iloc[:-1].dropna(how=&quot;any&quot;)
+        test_px = px_all.loc[test_start:test_end].iloc[:-1].dropna(how=&quot;any&quot;)
+
+        if len(train_px) &lt; MIN_TRAIN_OBS or len(test_px) &lt; 1000:
+            window_rows.append({
+                &quot;test_start&quot;: test_start,
+                &quot;test_end&quot;: test_end,
+                &quot;rank_95&quot;: np.nan,
+                &quot;status&quot;: &quot;insufficient_data&quot;
+            })
+            test_start += pd.Timedelta(days=STEP_DAYS)
+            continue
+
+        train_logp = np.log(train_px)
+
+        try:
+            rank, coint_weights = johansen_weights_train(
+                train_logp,
+                det_order=DET_ORDER,
+                k_ar_diff=K_AR_DIFF,
+                alpha=ALPHA_TRACE
+            )
+        except Exception as e:
+            window_rows.append({
+                &quot;test_start&quot;: test_start,
+                &quot;test_end&quot;: test_end,
+                &quot;rank_95&quot;: np.nan,
+                &quot;status&quot;: f&quot;johansen_error: {type(e).__name__}&quot;
+            })
+            test_start += pd.Timedelta(days=STEP_DAYS)
+            continue
+
+        window_rows.append({
+            &quot;test_start&quot;: test_start,
+            &quot;test_end&quot;: test_end,
+            &quot;rank_95&quot;: rank,
+            &quot;status&quot;: &quot;tradable&quot; if rank &gt;= 1 else &quot;rank0&quot;,
+            &quot;weights&quot;: coint_weights
+        })
+
+        # 공적분 관계가 없으면 그 OOS 구간은 거래하지 않음
+        if rank &lt; 1 or coint_weights is None:
+            for t in test_px.index:
+                all_rows.append({
+                    &quot;time&quot;: t, &quot;pos&quot;: 0, &quot;z&quot;: np.nan,
+                    &quot;gross_ret&quot;: 0.0, &quot;cost&quot;: 0.0, &quot;net_ret&quot;: 0.0,
+                    &quot;rank_95&quot;: 0
+                })
+            test_start += pd.Timedelta(days=STEP_DAYS)
+            continue
+
+        # z-score 계산을 위해 Train + Test를 이어 붙임
+        combined_px = pd.concat([train_px, test_px]).sort_index()
+        combined_px = combined_px[~combined_px.index.duplicated(keep=&quot;last&quot;)]
+        combined_logp = np.log(combined_px)
+
+        spread = build_spread(combined_logp, coint_weights)
+        z = rolling_zscore_time(spread, ZSCORE_DAYS)
+
+        # 거래 PnL용 weight는 gross=1로 정규화
+        trade_w = gross_normalized_weights(coint_weights)
+        w_vec = np.array([trade_w[c] for c in basket], dtype=float)
+
+        test_logp = combined_logp.loc[test_px.index]
+        asset_lr = test_logp.diff()
+
+        # 첫 Test bar의 수익률에는 직전 Train bar가 필요
+        prev_idx = combined_logp.index.get_indexer([test_px.index[0]])[0] - 1
+        if prev_idx &gt;= 0:
+            prev_logp = combined_logp.iloc[prev_idx]
+            asset_lr.iloc[0] = test_logp.iloc[0] - prev_logp
+
+        pos = 0
+        prev_trade_weights = np.zeros(len(basket), dtype=float)
+
+        fee_rate = (BASE_TC_BPS + slippage_bps) / 10000.0
+
+        test_rows = []
+
+        for t in test_px.index:
+            zt = z.loc[t] if t in z.index else np.nan
+
+            new_pos = pos
+
+            if np.isfinite(zt):
+                if pos == 0:
+                    if zt &gt;= ENTRY_Z:
+                        new_pos = -1
+                    elif zt &lt;= -ENTRY_Z:
+                        new_pos = 1
+                elif pos == 1 and zt &gt;= -EXIT_Z:
+                    new_pos = 0
+                elif pos == -1 and zt &lt;= EXIT_Z:
+                    new_pos = 0
+
+            current_trade_weights = new_pos * w_vec
+
+            turnover = float(np.sum(np.abs(current_trade_weights - prev_trade_weights)))
+            cost = turnover * fee_rate
+
+            lr = asset_lr.loc[t].values.astype(float)
+            if np.any(~np.isfinite(lr)):
+                gross_ret = 0.0
+            else:
+                # 직전 보유 weight로 해당 bar 수익 발생
+                gross_ret = float(prev_trade_weights @ lr)
+
+            net_ret = gross_ret - cost
+
+            test_rows.append({
+                &quot;time&quot;: t,
+                &quot;pos&quot;: int(new_pos),
+                &quot;z&quot;: float(zt) if np.isfinite(zt) else np.nan,
+                &quot;gross_ret&quot;: gross_ret,
+                &quot;cost&quot;: cost,
+                &quot;net_ret&quot;: net_ret,
+                &quot;rank_95&quot;: int(rank)
+            })
+
+            pos = new_pos
+            prev_trade_weights = current_trade_weights
+
+        # OOS window 끝에서 강제청산 + 청산비용 반영
+        if test_rows and pos != 0:
+            close_turnover = float(np.sum(np.abs(prev_trade_weights)))
+            close_cost = close_turnover * fee_rate
+            test_rows[-1][&quot;cost&quot;] += close_cost
+            test_rows[-1][&quot;net_ret&quot;] -= close_cost
+            test_rows[-1][&quot;pos&quot;] = 0
+
+        all_rows.extend(test_rows)
+        test_start += pd.Timedelta(days=STEP_DAYS)
+
+    result = pd.DataFrame(all_rows)
+    windows = pd.DataFrame(window_rows)
+
+    if result.empty:
+        return result, windows, {}
+
+    result = result.sort_values(&quot;time&quot;).set_index(&quot;time&quot;)
+    result = result[~result.index.duplicated(keep=&quot;last&quot;)]
+
+    cumulative_return = float(np.expm1(result[&quot;net_ret&quot;].sum()))
+    sharpe = sharpe_from_minute_logret(result[&quot;net_ret&quot;])
+    mdd = max_drawdown_from_logret(result[&quot;net_ret&quot;])
+
+    ts = trade_stats(result[&quot;pos&quot;], result[&quot;net_ret&quot;])
+
+    n_windows = len(windows)
+    n_coint = int((windows[&quot;rank_95&quot;] &gt;= 1).sum()) if n_windows else 0
+
+    summary = {
+        &quot;basket&quot;: &quot;|&quot;.join(basket),
+        &quot;slippage_bps&quot;: slippage_bps,
+        &quot;oos_windows&quot;: n_windows,
+        &quot;rank_ge_1_windows&quot;: n_coint,
+        &quot;cointegration_window_ratio&quot;: n_coint / n_windows if n_windows else np.nan,
+        &quot;cumulative_return&quot;: cumulative_return,
+        &quot;sharpe&quot;: sharpe,
+        &quot;mdd&quot;: mdd,
+        **ts
+    }
+
+    return result, windows, summary
+
+# ─────────────────────────────────────────
+
+all_summaries = []
+all_results = {}
+all_windows = {}
+
+for basket in BASKETS:
+    basket_key = &quot;|&quot;.join(basket)
+
+    for slip in SLIPPAGE_CASES:
+        print(f&quot;Running: {basket_key}, slippage={slip}bps&quot;)
+
+        result, windows, summary = backtest_one_basket(
+            df,
+            basket,
+            slippage_bps=slip
+        )
+
+        all_results[(basket_key, slip)] = result
+        all_windows[(basket_key, slip)] = windows
+        all_summaries.append(summary)
+
+summary_df = pd.DataFrame(all_summaries)
+
+pd.set_option(&quot;display.max_columns&quot;, None)
+pd.set_option(&quot;display.width&quot;, 200)
+
+print(&quot;\n=== SUMMARY ===&quot;)
+print(summary_df.to_string(index=False))
+
+# ─────────────────────────────────────────
+
+# 결과 저장
+
+summary_df.to_csv(
+    &quot;1m_backtest_summary.csv&quot;,
+    index=False,
+    encoding=&quot;utf-8-sig&quot;
+)
+
+for (basket_key, slip), result in all_results.items():
+    safe = basket_key.replace(&quot;KRW-&quot;, &quot;&quot;).replace(&quot;|&quot;, &quot;_&quot;)
+    result.to_csv(
+        f&quot;1m_detail_{safe}_slip{int(slip)}bps.csv&quot;,
+        encoding=&quot;utf-8-sig&quot;
+    )
+
+for (basket_key, slip), windows in all_windows.items():
+    safe = basket_key.replace(&quot;KRW-&quot;, &quot;&quot;).replace(&quot;|&quot;, &quot;_&quot;)
+    windows.to_csv(
+        f&quot;1m_windows_{safe}_slip{int(slip)}bps.csv&quot;,
+        index=False,
+        encoding=&quot;utf-8-sig&quot;
+    )
+
+print(&quot;Saved: 1m_backtest_summary.csv + detail/window CSV files&quot;)
+
+# ─────────────────────────────────────────
+
+# 0bps 기준 누적성과 그래프
+
+for basket in BASKETS:
+    basket_key = &quot;|&quot;.join(basket)
+    result = all_results[(basket_key, 0.0)]
+
+    if result.empty:
+        continue
+
+    wealth = np.exp(result[&quot;net_ret&quot;].cumsum())
+
+    plt.figure(figsize=(12, 4))
+    plt.plot(wealth.index, wealth.values)
+    plt.title(f&quot;1m OOS wealth curve (0bps slippage)\n{basket_key}&quot;)
+    plt.xlabel(&quot;Date&quot;)
+    plt.ylabel(&quot;Wealth&quot;)
+    plt.grid(True, alpha=0.3)
+    plt.show()</code></pre></details>
+        <details class="code-details reveal"><summary>15m_backtest.ipynb 전체 코드 <span>+</span></summary><pre><code>!pip install -q statsmodels pyarrow
+
+# ─────────────────────────────────────────
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from statsmodels.tsa.vector_ar.vecm import coint_johansen
+from google.colab import drive
+
+drive.mount(&#x27;/content/drive&#x27;)
+
+PATH = &quot;/content/drive/MyDrive/코인데이터/ALL_1m.parquet&quot;
+
+# 1분봉 원본
+df_1m = pd.read_parquet(PATH).sort_index()
+df_1m = df_1m.loc[&quot;2025-01-01&quot;:&quot;2025-12-31&quot;]
+
+# 15분봉: 각 15분 구간의 마지막 가격
+df = df_1m.resample(&quot;15min&quot;).last()
+
+print(&quot;1m shape :&quot;, df_1m.shape)
+print(&quot;15m shape:&quot;, df.shape)
+print(&quot;period   :&quot;, df.index.min(), &quot;~&quot;, df.index.max())
+print(&quot;columns  :&quot;, df.columns.tolist())
+
+# ─────────────────────────────────────────
+
+# Johansen_test_15m에서 최종 선별된 2개 후보
+
+BASKETS = [
+    [&quot;KRW-BTC&quot;, &quot;KRW-ADA&quot;, &quot;KRW-DOT&quot;, &quot;KRW-TRX&quot;],
+    [&quot;KRW-BTC&quot;, &quot;KRW-LINK&quot;, &quot;KRW-SOL&quot;, &quot;KRW-TRX&quot;],
+]
+
+K_AR_DIFF_BY_BASKET = {
+    &quot;KRW-BTC|KRW-ADA|KRW-DOT|KRW-TRX&quot;: 8,
+    &quot;KRW-BTC|KRW-LINK|KRW-SOL|KRW-TRX&quot;: 9,
+}
+
+BAR_MINUTES = 15
+BARS_PER_HOUR = 60 // BAR_MINUTES
+BARS_PER_DAY = 24 * BARS_PER_HOUR
+
+TRAIN_DAYS = 90
+TEST_DAYS = 7
+STEP_DAYS = 7
+ZSCORE_DAYS = 14
+
+ENTRY_Z = 2.0
+EXIT_Z = 0.5
+
+DET_ORDER = 0
+ALPHA_TRACE = 0.05
+
+BASE_TC_BPS = 5.0
+SLIPPAGE_CASES = [0.0, 5.0, 10.0]
+
+# time-based rolling에서 최소 관측치
+# 14일 window를 쓰되 최소 7일 데이터가 쌓인 이후 z-score 허용
+MIN_Z_OBS = 7 * BARS_PER_DAY
+
+# Train 90일 중 최소 60일 이상의 유효 15분봉이 있어야 실행
+MIN_TRAIN_OBS = 60 * BARS_PER_DAY
+
+print(&quot;BARS_PER_DAY :&quot;, BARS_PER_DAY)
+print(&quot;MIN_Z_OBS    :&quot;, MIN_Z_OBS)
+print(&quot;MIN_TRAIN_OBS:&quot;, MIN_TRAIN_OBS)
+
+# ─────────────────────────────────────────
+
+def choose_rank_trace(jres, alpha=0.05):
+    col = {0.10: 0, 0.05: 1, 0.01: 2}[alpha]
+
+    rank = 0
+    for r in range(len(jres.lr1)):
+        if jres.lr1[r] &gt; jres.cvt[r, col]:
+            rank = r + 1
+
+    return rank
+
+
+def johansen_weights_train(logp_train, det_order=0, k_ar_diff=8, alpha=0.05):
+    jres = coint_johansen(
+        logp_train.values,
+        det_order=det_order,
+        k_ar_diff=k_ar_diff
+    )
+
+    rank = choose_rank_trace(jres, alpha)
+
+    if rank &lt; 1:
+        return 0, None
+
+    # 첫 번째 cointegrating vector 사용
+    v = jres.evec[:, 0].astype(float)
+
+    # 첫 자산(BTC)의 계수를 1로 정규화
+    if abs(v[0]) &lt; 1e-12:
+        return 0, None
+
+    w = v / v[0]
+
+    return int(rank), dict(zip(logp_train.columns, w))
+
+
+def build_spread(logp, weights):
+    w = np.array([weights[c] for c in logp.columns], dtype=float)
+    return pd.Series(logp.values @ w, index=logp.index)
+
+
+def rolling_zscore_time(s, days=14):
+    # 현재 시점까지의 trailing window만 사용
+    m = s.rolling(f&quot;{days}D&quot;, min_periods=MIN_Z_OBS).mean()
+    sd = s.rolling(f&quot;{days}D&quot;, min_periods=MIN_Z_OBS).std(ddof=1)
+
+    return (s - m) / (sd + 1e-12)
+
+
+def gross_normalized_weights(weights):
+    # Johansen vector의 크기 차이가 레버리지 차이로 이어지지 않도록
+    # 실제 PnL 계산용 weight의 sum(abs(w))를 1로 맞춤
+    vals = np.array(list(weights.values()), dtype=float)
+    gross = np.sum(np.abs(vals))
+
+    if gross &lt;= 1e-12:
+        raise ValueError(&quot;gross exposure가 0입니다.&quot;)
+
+    return {k: v / gross for k, v in weights.items()}
+
+
+def max_drawdown_from_logret(ret):
+    wealth = np.exp(ret.fillna(0.0).cumsum())
+    peak = wealth.cummax()
+    dd = wealth / peak - 1.0
+
+    return float(dd.min())
+
+
+def sharpe_from_15m_logret(ret):
+    # 15분 수익률을 직접 연율화하지 않고 일별 로그수익률로 집계
+    daily = ret.fillna(0.0).resample(&quot;1D&quot;).sum()
+
+    if len(daily) &lt; 10:
+        return np.nan
+
+    sd = daily.std(ddof=1)
+
+    if sd &lt;= 1e-12:
+        return np.nan
+
+    return float(
+        daily.mean() / sd * np.sqrt(365)
+    )
+
+
+def trade_stats(position, ret):
+    position = position.fillna(0).astype(int)
+    ret = ret.fillna(0.0)
+
+    trades = []
+    in_trade = False
+    st = None
+
+    for t, p in position.items():
+
+        if (not in_trade) and p != 0:
+            in_trade = True
+            st = t
+
+        elif in_trade and p == 0:
+            trades.append((st, t))
+            in_trade = False
+            st = None
+
+    if in_trade and st is not None:
+        trades.append((st, position.index[-1]))
+
+    if not trades:
+        return {
+            &quot;trades&quot;: 0,
+            &quot;avg_hold_hours&quot;: np.nan,
+            &quot;win_rate&quot;: np.nan,
+            &quot;avg_trade_return&quot;: np.nan
+        }
+
+    trade_returns = []
+    hold_hours = []
+
+    for st, ed in trades:
+        seg = ret.loc[st:ed]
+
+        trade_returns.append(
+            float(np.expm1(seg.sum()))
+        )
+
+        hold_hours.append(
+            (ed - st).total_seconds() / 3600
+        )
+
+    return {
+        &quot;trades&quot;: len(trades),
+        &quot;avg_hold_hours&quot;: float(np.mean(hold_hours)),
+        &quot;win_rate&quot;: float(np.mean(np.array(trade_returns) &gt; 0)),
+        &quot;avg_trade_return&quot;: float(np.mean(trade_returns)),
+    }
+
+# ─────────────────────────────────────────
+
+def backtest_one_basket(df_price, basket, k_ar_diff, slippage_bps=0.0):
+
+    px_all = df_price[basket].copy()
+    px_all = px_all.where(px_all &gt; 0)
+
+    valid = px_all.dropna(how=&quot;any&quot;)
+
+    if valid.empty:
+        raise ValueError(f&quot;유효 데이터 없음: {basket}&quot;)
+
+    first_valid = valid.index.min()
+    last_valid = valid.index.max()
+
+    # 최소 90일 Train 확보 후 첫 Test 시작
+    test_start = first_valid + pd.Timedelta(days=TRAIN_DAYS)
+
+    # 마지막 Test가 완전히 들어갈 수 있는 시작점
+    last_test_start = last_valid - pd.Timedelta(days=TEST_DAYS)
+
+    all_rows = []
+    window_rows = []
+
+    while test_start &lt;= last_test_start:
+
+        train_start = test_start - pd.Timedelta(days=TRAIN_DAYS)
+        test_end = test_start + pd.Timedelta(days=TEST_DAYS)
+
+        # 경계 중복 방지를 위해 test_start 시점은 Train에서 제외
+        train_px = px_all.loc[train_start:test_start].iloc[:-1].dropna(how=&quot;any&quot;)
+        test_px = px_all.loc[test_start:test_end].iloc[:-1].dropna(how=&quot;any&quot;)
+
+        if len(train_px) &lt; MIN_TRAIN_OBS or len(test_px) &lt; BARS_PER_DAY:
+            window_rows.append({
+                &quot;test_start&quot;: test_start,
+                &quot;test_end&quot;: test_end,
+                &quot;rank_95&quot;: np.nan,
+                &quot;status&quot;: &quot;insufficient_data&quot;,
+                &quot;weights&quot;: None
+            })
+
+            test_start += pd.Timedelta(days=STEP_DAYS)
+            continue
+
+        train_logp = np.log(train_px)
+
+        try:
+            rank, coint_weights = johansen_weights_train(
+                train_logp,
+                det_order=DET_ORDER,
+                k_ar_diff=k_ar_diff,
+                alpha=ALPHA_TRACE
+            )
+
+        except Exception as e:
+            window_rows.append({
+                &quot;test_start&quot;: test_start,
+                &quot;test_end&quot;: test_end,
+                &quot;rank_95&quot;: np.nan,
+                &quot;status&quot;: f&quot;johansen_error: {type(e).__name__}&quot;,
+                &quot;weights&quot;: None
+            })
+
+            test_start += pd.Timedelta(days=STEP_DAYS)
+            continue
+
+        window_rows.append({
+            &quot;test_start&quot;: test_start,
+            &quot;test_end&quot;: test_end,
+            &quot;rank_95&quot;: rank,
+            &quot;status&quot;: &quot;tradable&quot; if rank &gt;= 1 else &quot;rank0&quot;,
+            &quot;weights&quot;: coint_weights
+        })
+
+        # Train 시점에서 공적분 관계가 없으면 다음 7일 거래하지 않음
+        if rank &lt; 1 or coint_weights is None:
+
+            for t in test_px.index:
+                all_rows.append({
+                    &quot;time&quot;: t,
+                    &quot;pos&quot;: 0,
+                    &quot;z&quot;: np.nan,
+                    &quot;gross_ret&quot;: 0.0,
+                    &quot;cost&quot;: 0.0,
+                    &quot;net_ret&quot;: 0.0,
+                    &quot;rank_95&quot;: 0
+                })
+
+            test_start += pd.Timedelta(days=STEP_DAYS)
+            continue
+
+        # ----------------------------------------
+        # z-score 계산: Train + Test를 연결
+        # Test 시점에서는 trailing 14일 정보만 사용
+        # ----------------------------------------
+        combined_px = pd.concat(
+            [train_px, test_px]
+        ).sort_index()
+
+        combined_px = combined_px[
+            ~combined_px.index.duplicated(keep=&quot;last&quot;)
+        ]
+
+        combined_logp = np.log(combined_px)
+
+        spread = build_spread(
+            combined_logp,
+            coint_weights
+        )
+
+        z = rolling_zscore_time(
+            spread,
+            ZSCORE_DAYS
+        )
+
+        # 실제 PnL은 gross exposure = 1로 정규화
+        trade_w = gross_normalized_weights(
+            coint_weights
+        )
+
+        w_vec = np.array(
+            [trade_w[c] for c in basket],
+            dtype=float
+        )
+
+        test_logp = combined_logp.loc[test_px.index]
+
+        # 각 15분 자산 로그수익률
+        asset_lr = test_logp.diff()
+
+        # 첫 Test bar의 수익률에는 직전 Train bar 필요
+        first_test_loc = combined_logp.index.get_indexer(
+            [test_px.index[0]]
+        )[0]
+
+        prev_idx = first_test_loc - 1
+
+        if prev_idx &gt;= 0:
+            prev_logp = combined_logp.iloc[prev_idx]
+            asset_lr.iloc[0] = (
+                test_logp.iloc[0] - prev_logp
+            )
+
+        pos = 0
+
+        # 실제 직전 보유 자산 weight
+        prev_trade_weights = np.zeros(
+            len(basket),
+            dtype=float
+        )
+
+        fee_rate = (
+            BASE_TC_BPS + slippage_bps
+        ) / 10000.0
+
+        test_rows = []
+
+        for t in test_px.index:
+
+            zt = (
+                z.loc[t]
+                if t in z.index
+                else np.nan
+            )
+
+            new_pos = pos
+
+            if np.isfinite(zt):
+
+                # 진입
+                if pos == 0:
+
+                    if zt &gt;= ENTRY_Z:
+                        new_pos = -1
+
+                    elif zt &lt;= -ENTRY_Z:
+                        new_pos = 1
+
+                # Long spread 청산
+                elif pos == 1 and zt &gt;= -EXIT_Z:
+                    new_pos = 0
+
+                # Short spread 청산
+                elif pos == -1 and zt &lt;= EXIT_Z:
+                    new_pos = 0
+
+            current_trade_weights = (
+                new_pos * w_vec
+            )
+
+            # t 시점 주문에 따른 turnover 및 비용
+            turnover = float(
+                np.sum(
+                    np.abs(
+                        current_trade_weights
+                        - prev_trade_weights
+                    )
+                )
+            )
+
+            cost = turnover * fee_rate
+
+            # t bar 수익은 직전 시점까지 보유하던 weight로 발생
+            lr = asset_lr.loc[t].values.astype(float)
+
+            if np.any(~np.isfinite(lr)):
+                gross_ret = 0.0
+
+            else:
+                gross_ret = float(
+                    prev_trade_weights @ lr
+                )
+
+            net_ret = gross_ret - cost
+
+            test_rows.append({
+                &quot;time&quot;: t,
+                &quot;pos&quot;: int(new_pos),
+                &quot;z&quot;: float(zt) if np.isfinite(zt) else np.nan,
+                &quot;gross_ret&quot;: gross_ret,
+                &quot;cost&quot;: cost,
+                &quot;net_ret&quot;: net_ret,
+                &quot;rank_95&quot;: int(rank)
+            })
+
+            pos = new_pos
+            prev_trade_weights = current_trade_weights
+
+        # ----------------------------------------
+        # OOS window 끝에서 포지션 강제청산
+        # ----------------------------------------
+        if test_rows and pos != 0:
+
+            close_turnover = float(
+                np.sum(
+                    np.abs(prev_trade_weights)
+                )
+            )
+
+            close_cost = (
+                close_turnover * fee_rate
+            )
+
+            test_rows[-1][&quot;cost&quot;] += close_cost
+            test_rows[-1][&quot;net_ret&quot;] -= close_cost
+            test_rows[-1][&quot;pos&quot;] = 0
+
+        all_rows.extend(test_rows)
+
+        test_start += pd.Timedelta(
+            days=STEP_DAYS
+        )
+
+    # ----------------------------------------
+    # 결과 정리
+    # ----------------------------------------
+    result = pd.DataFrame(all_rows)
+    windows = pd.DataFrame(window_rows)
+
+    if result.empty:
+        return result, windows, {}
+
+    result = (
+        result.sort_values(&quot;time&quot;)
+        .set_index(&quot;time&quot;)
+    )
+
+    result = result[
+        ~result.index.duplicated(keep=&quot;last&quot;)
+    ]
+
+    cumulative_return = float(
+        np.expm1(
+            result[&quot;net_ret&quot;].sum()
+        )
+    )
+
+    sharpe = sharpe_from_15m_logret(
+        result[&quot;net_ret&quot;]
+    )
+
+    mdd = max_drawdown_from_logret(
+        result[&quot;net_ret&quot;]
+    )
+
+    ts = trade_stats(
+        result[&quot;pos&quot;],
+        result[&quot;net_ret&quot;]
+    )
+
+    n_windows = len(windows)
+
+    n_coint = (
+        int(
+            (windows[&quot;rank_95&quot;] &gt;= 1).sum()
+        )
+        if n_windows
+        else 0
+    )
+
+    summary = {
+        &quot;basket&quot;: &quot;|&quot;.join(basket),
+        &quot;k_ar_diff&quot;: int(k_ar_diff),
+        &quot;slippage_bps&quot;: slippage_bps,
+        &quot;oos_windows&quot;: n_windows,
+        &quot;rank_ge_1_windows&quot;: n_coint,
+        &quot;cointegration_window_ratio&quot;:
+            n_coint / n_windows
+            if n_windows
+            else np.nan,
+        &quot;cumulative_return&quot;: cumulative_return,
+        &quot;sharpe&quot;: sharpe,
+        &quot;mdd&quot;: mdd,
+        **ts
+    }
+
+    return result, windows, summary
+
+# ─────────────────────────────────────────
+
+all_summaries = []
+all_results = {}
+all_windows = {}
+
+for basket in BASKETS:
+
+    basket_key = &quot;|&quot;.join(basket)
+
+    k_ar_diff = K_AR_DIFF_BY_BASKET[
+        basket_key
+    ]
+
+    for slip in SLIPPAGE_CASES:
+
+        print(
+            f&quot;Running: {basket_key}, &quot;
+            f&quot;k_ar_diff={k_ar_diff}, &quot;
+            f&quot;slippage={slip}bps&quot;
+        )
+
+        result, windows, summary = backtest_one_basket(
+            df,
+            basket,
+            k_ar_diff=k_ar_diff,
+            slippage_bps=slip
+        )
+
+        all_results[
+            (basket_key, slip)
+        ] = result
+
+        all_windows[
+            (basket_key, slip)
+        ] = windows
+
+        all_summaries.append(
+            summary
+        )
+
+summary_df = pd.DataFrame(
+    all_summaries
+)
+
+pd.set_option(
+    &quot;display.max_columns&quot;,
+    None
+)
+
+pd.set_option(
+    &quot;display.width&quot;,
+    200
+)
+
+print(&quot;\n=== SUMMARY ===&quot;)
+
+print(
+    summary_df.to_string(
+        index=False
+    )
+)
+
+# ─────────────────────────────────────────
+
+# 결과 CSV 저장
+
+summary_df.to_csv(
+    &quot;15m_backtest_summary.csv&quot;,
+    index=False,
+    encoding=&quot;utf-8-sig&quot;
+)
+
+for (basket_key, slip), result in all_results.items():
+
+    safe = (
+        basket_key
+        .replace(&quot;KRW-&quot;, &quot;&quot;)
+        .replace(&quot;|&quot;, &quot;_&quot;)
+    )
+
+    result.to_csv(
+        f&quot;15m_detail_{safe}_slip{int(slip)}bps.csv&quot;,
+        encoding=&quot;utf-8-sig&quot;
+    )
+
+for (basket_key, slip), windows in all_windows.items():
+
+    safe = (
+        basket_key
+        .replace(&quot;KRW-&quot;, &quot;&quot;)
+        .replace(&quot;|&quot;, &quot;_&quot;)
+    )
+
+    windows.to_csv(
+        f&quot;15m_windows_{safe}_slip{int(slip)}bps.csv&quot;,
+        index=False,
+        encoding=&quot;utf-8-sig&quot;
+    )
+
+print(
+    &quot;Saved: 15m_backtest_summary.csv &quot;
+    &quot;+ detail/window CSV files&quot;
+)
+
+# ─────────────────────────────────────────
+
+# 0bps 추가 슬리피지 기준 누적 wealth curve
+
+for basket in BASKETS:
+
+    basket_key = &quot;|&quot;.join(basket)
+
+    result = all_results[
+        (basket_key, 0.0)
+    ]
+
+    if result.empty:
+        continue
+
+    wealth = np.exp(
+        result[&quot;net_ret&quot;].cumsum()
+    )
+
+    plt.figure(figsize=(12, 4))
+
+    plt.plot(
+        wealth.index,
+        wealth.values
+    )
+
+    plt.title(
+        &quot;15m OOS wealth curve &quot;
+        &quot;(0bps additional slippage)\n&quot;
+        + basket_key
+    )
+
+    plt.xlabel(&quot;Date&quot;)
+    plt.ylabel(&quot;Wealth&quot;)
+
+    plt.grid(
+        True,
+        alpha=0.3
+    )
+
+    plt.show()</code></pre></details>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="closing-inner reveal">
+        <span>COINTEGRATION RESEARCH</span>
+        <h2>통계적 관계를 찾는 것에서<br>실제 OOS 성과를 검증하는 것까지.</h2>
+        <p>2025 KRW 암호자산 · 1m / 15m · Johansen Cointegration · Rolling Out-of-Sample Backtest</p>
+      </div>
+    </section>
+  </main>
+
+  <footer><p>Cointegration Statistical Arbitrage Project</p><a href="#top">Back to top ↑</a></footer>
+  <script src="script.js"></script>
+</body>
+</html>
