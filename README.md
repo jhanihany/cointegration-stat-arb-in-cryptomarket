@@ -6,8 +6,6 @@ Johansen 공적분 검정을 이용해 평균회귀 가능성이 있는 자산 �
 
 ---
 
----
-
 ## Repository Structure
 
 ```text
