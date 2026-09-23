@@ -6,6 +6,44 @@ Johansen 공적분 검정을 이용해 평균회귀 가능성이 있는 자산 �
 
 ---
 
+---
+
+## Repository Structure
+
+```text
+.
+├── assets/
+├── source/
+├── 15m_backtest.ipynb
+├── 15m_backtest_summary.csv
+├── 1m_backtest.ipynb
+├── 1m_backtest_summary.csv
+├── ALL_1m.parquet
+├── Johansen_test_15m.ipynb
+├── Johansen_test_1m.ipynb
+├── index.html
+├── script.js
+└── style.css
+```
+
+### Main Files
+
+| File | Description |
+|---|---|
+| `Johansen_test_1m.ipynb` | 1분봉 데이터 기반 공적분 screening |
+| `Johansen_test_15m.ipynb` | 15분봉 데이터 기반 공적분 screening |
+| `1m_backtest.ipynb` | 1분봉 Rolling OOS 백테스트 |
+| `15m_backtest.ipynb` | 15분봉 Rolling OOS 백테스트 |
+| `1m_backtest_summary.csv` | 1분봉 백테스트 결과 요약 |
+| `15m_backtest_summary.csv` | 15분봉 백테스트 결과 요약 |
+| `ALL_1m.parquet` | 분석에 사용한 1분봉 데이터 |
+| `index.html` | 프로젝트 결과를 정리한 웹 포트폴리오 |
+| `assets/` | 웹페이지 차트 및 결과 이미지 |
+| `source/` | 웹페이지에서 다운로드할 수 있는 분석 원본 파일 |
+
+---
+
+
 ## Project Overview
 
 공적분 관계가 존재하는 자산들은 단기적으로 가격이 서로 이탈하더라도 장기적으로 일정한 균형관계로 복귀할 가능성이 있습니다.
@@ -159,42 +197,6 @@ Mean Reversion 가능성
 까지 충족되어야 실제 수익성으로 연결
 ```
 
----
-
-## Repository Structure
-
-```text
-.
-├── assets/
-├── source/
-├── 15m_backtest.ipynb
-├── 15m_backtest_summary.csv
-├── 1m_backtest.ipynb
-├── 1m_backtest_summary.csv
-├── ALL_1m.parquet
-├── Johansen_test_15m.ipynb
-├── Johansen_test_1m.ipynb
-├── index.html
-├── script.js
-└── style.css
-```
-
-### Main Files
-
-| File | Description |
-|---|---|
-| `Johansen_test_1m.ipynb` | 1분봉 데이터 기반 공적분 screening |
-| `Johansen_test_15m.ipynb` | 15분봉 데이터 기반 공적분 screening |
-| `1m_backtest.ipynb` | 1분봉 Rolling OOS 백테스트 |
-| `15m_backtest.ipynb` | 15분봉 Rolling OOS 백테스트 |
-| `1m_backtest_summary.csv` | 1분봉 백테스트 결과 요약 |
-| `15m_backtest_summary.csv` | 15분봉 백테스트 결과 요약 |
-| `ALL_1m.parquet` | 분석에 사용한 1분봉 데이터 |
-| `index.html` | 프로젝트 결과를 정리한 웹 포트폴리오 |
-| `assets/` | 웹페이지 차트 및 결과 이미지 |
-| `source/` | 웹페이지에서 다운로드할 수 있는 분석 원본 파일 |
-
----
 
 ## Web Portfolio
 
